@@ -19,7 +19,7 @@ const int sleepPin = 13;
 const int zeroG_X = 338;
 const int zeroG_Y = 338;
 const int zeroG_Z = 338;
-const float pitch_roll_range = 0.10;
+const float pitch_roll_range = 0.75;
 
 //position variables
 float init_pitch;
@@ -103,8 +103,8 @@ void loop() {
           starting_pitch_high = temp;
         }
 
-        starting_roll_high = init_roll*(1-pitch_roll_range);
-        starting_roll_low = init_roll*(1+pitch_roll_range);
+        starting_roll_high = init_roll*(1+pitch_roll_range);
+        starting_roll_low = init_roll*(1-pitch_roll_range);
         if(init_roll < 0){
           float temp = starting_roll_low;
           starting_roll_low = starting_roll_high;
@@ -161,9 +161,6 @@ void loop() {
     delay(100);
 
     getTiltAngles(current_pitch,current_roll);
-    Serial.print("p: "); Serial.println(current_pitch);
-    Serial.print("l: "); Serial.println(starting_pitch_low);
-    Serial.print("h: "); Serial.println(starting_pitch_high);
     if(inStartingRange()){
       digitalWrite(repLED,HIGH);
       went_to_starting = true;
@@ -199,15 +196,17 @@ void getTiltAngles(float &pitch, float &roll) {
 }
 
 bool inStartingRange(){
-  if(current_pitch <= starting_pitch_high && current_pitch >= starting_pitch_low)
+  if(current_pitch <= starting_pitch_high && current_pitch >= starting_pitch_low){
     if(current_roll <= starting_roll_high && current_roll >= starting_roll_low)
       return true;
+  }
   return false;
 }
 
 bool inFinalRange(){
-  if(current_pitch <= final_pitch_high && current_pitch >= final_pitch_low)
+  if(current_pitch <= final_pitch_high && current_pitch >= final_pitch_low){
     if(current_roll <= final_roll_high && current_roll >= final_roll_low)
       return true;
+  }
   return false;
 }
