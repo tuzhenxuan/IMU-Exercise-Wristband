@@ -76,7 +76,7 @@ void loop() {
 
   if(!done_calibration){
     if(!done_starting_calibration){
-      display.print("Press button to start calibration.");
+      display.print("Press to begin.");
       display.display();
       delay(100);
       if(digitalRead(buttonPin) == 1){
