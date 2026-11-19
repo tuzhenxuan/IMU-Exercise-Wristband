@@ -1,6 +1,20 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <MAX30105.h>
+#include <heartRate.h>
+
+MAX30105 heartSensor;
+bool heartSensorFound = false;
+bool heartRateValid = false;
+float heartRateBPM = 0;
+float heartRates[4] = {0};
+byte heartRateIndex = 0;
+byte heartRateCount = 0;
+unsigned long lastBeatTime = 0;
+unsigned long lastHeartSample = 0;
+unsigned long lastHeartService = 0;
+const long fingerThreshold = 50000;
 
 // Screen Variables
 #define SCREEN_WIDTH 128
@@ -58,6 +72,15 @@ void setup() {
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
 
+  // Added MAX30102 setup; shares I2C with the OLED.
+  heartSensorFound = heartSensor.begin(Wire, I2C_SPEED_STANDARD);
+  if (heartSensorFound) {
+    heartSensor.setup(0x1F, 4, 2, 400, 411, 4096);
+    heartSensor.disableFIFORollover();
+  } else {
+    Serial.println("MAX30102 not detected");
+  }
+
   pinMode(repLED,OUTPUT);
   pinMode(setLED,OUTPUT);
   pinMode(buttonPin,INPUT);
@@ -66,10 +89,11 @@ void setup() {
   pinMode(sleepPin, OUTPUT);
   digitalWrite(sleepPin, HIGH); 
   
-  delay(100); // Allow sensor to stabilize
+  heartRateDelay(100); // Allow sensor to stabilize
 }
 
 void loop() {
+  updateHeartRate();
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(5,0);
@@ -78,7 +102,7 @@ void loop() {
     if(!done_starting_calibration){
       display.print("Press to begin.");
       display.display();
-      delay(100);
+      heartRateDelay(100);
       if(digitalRead(buttonPin) == 1){
         display.clearDisplay();
         display.print("Hold starting position for 3 seconds.");
@@ -89,7 +113,7 @@ void loop() {
           getTiltAngles(temp_pitch,temp_roll);
           init_pitch += temp_pitch;
           init_roll += temp_roll;
-          delay(100);
+          heartRateDelay(100);
         }
         //get the average pitch and roll for the inital position (will +- 5% later to set a range for the inital position)
         init_pitch /= 30.0;
@@ -128,7 +152,7 @@ void loop() {
           getTiltAngles(temp_pitch,temp_roll);
           final_pitch += temp_pitch;
           final_roll += temp_roll;
-          delay(100);
+          heartRateDelay(100);
         }
         final_pitch /= 30.0;
         final_roll /= 30.0;
@@ -157,8 +181,18 @@ void loop() {
     display.clearDisplay();
     display.print("Rep count: ");
     display.print(rep_count);
+
+    // Added heart rate below the repetition counter.
+    display.setCursor(0, 12);
+    display.print("Heartrate: ");
+    if (heartRateValid) {
+      display.print((int)(heartRateBPM + 0.5f));
+    } else {
+      display.print("--");
+    }
+    display.print(" bpm");
     display.display();
-    delay(100);
+    heartRateDelay(100);
 
     getTiltAngles(current_pitch,current_roll);
     if(inStartingRange()){
@@ -209,4 +243,79 @@ bool inFinalRange(){
       return true;
   }
   return false;
+}
+
+// Added MAX30102 functions.
+void resetHeartRate() {
+  heartRateValid = false;
+  heartRateCount = 0;
+  heartRateIndex = 0;
+  lastBeatTime = 0;
+}
+
+void updateHeartRate() {
+  if (!heartSensorFound) return;
+  unsigned long now = millis();
+
+  // Do not calculate BPM from samples left over after a long pause.
+  if (lastHeartService && now - lastHeartService > 100) {
+    heartSensor.clearFIFO();
+    resetHeartRate();
+  }
+  lastHeartService = now;
+
+  uint16_t received = heartSensor.check();
+  if (received >= 4) {
+    while (heartSensor.available()) heartSensor.nextSample();
+    resetHeartRate();
+    return;
+  }
+
+  int remaining = heartSensor.available();
+  while (heartSensor.available()) {
+    // 400 samples/sec averaged by four gives 100 FIFO samples/sec.
+    unsigned long sampleTime = now - (remaining - 1) * 10UL;
+    remaining--;
+    long irValue = heartSensor.getFIFOIR();
+    heartSensor.nextSample();
+    lastHeartSample = now;
+
+    if (irValue < fingerThreshold) {
+      resetHeartRate();
+      continue;
+    }
+
+    if (checkForBeat(irValue)) {
+      if (lastBeatTime) {
+        unsigned long interval = sampleTime - lastBeatTime;
+        float candidate = interval ? 60000.0f / interval : 0;
+        if (candidate >= 30 && candidate <= 220) {
+          heartRates[heartRateIndex] = candidate;
+          heartRateIndex = (heartRateIndex + 1) % 4;
+          if (heartRateCount < 4) heartRateCount++;
+          float total = 0;
+          for (byte i = 0; i < heartRateCount; i++) total += heartRates[i];
+          heartRateBPM = total / heartRateCount;
+          heartRateValid = heartRateCount == 4;
+        } else {
+          resetHeartRate();
+        }
+      }
+      lastBeatTime = sampleTime;
+    }
+  }
+
+  if (!lastBeatTime || now - lastBeatTime > 3000 ||
+      now - lastHeartSample > 1000) {
+    resetHeartRate();
+  }
+}
+
+// Keeps the original wait durations while servicing the pulse sensor.
+void heartRateDelay(unsigned long duration) {
+  unsigned long started = millis();
+  while (millis() - started < duration) {
+    updateHeartRate();
+    delay(2);
+  }
 }
