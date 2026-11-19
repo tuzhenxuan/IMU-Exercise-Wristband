@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IMU Exercise Band Tracker</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/open-sauce-one@5.2.5/300.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/open-sauce-one@5.2.5/400.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/open-sauce-one@5.2.5/700.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/open-sauce-one@5.2.5/900.css">
+<link rel="stylesheet" href="style.css?v=15">
+</head>
+<body>
+
+<header class="top">
+  <button class="mark" id="homeBtn">IMU Exercise Band Tracker</button>
+
+  <div class="links">
+    <div class="link" id="wifiLink">
+      <span class="lbl">Wi‑Fi</span>
+      <input id="host" value="arduino.local:5555" spellcheck="false" aria-label="Yun address">
+      <button id="wifiBtn" class="btn">Connect</button>
+      <span class="state"><span></span></span>
+    </div>
+    <div class="link" id="usbLink">
+      <span class="lbl">USB</span>
+      <button id="usbBtn" class="btn">Choose port</button>
+      <span class="state"><span></span></span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- step 1: the session plan — warm-up, mobility, one per functional category, stretches, cool-down -->
+  <section id="pickScreen" class="pick">
+    <h1 class="title">Today’s session</h1>
+    <p id="sessionInfo" class="session-info"></p>
+
+    <div class="bookend">
+      <span class="num">00</span>
+      <div>
+        <h2>Warm‑up &amp; cardio</h2>
+        <p>3–5 min easy, then 15–30 min of moderate cardio on a treadmill, recumbent bike or elliptical at
+           40–60% of your heart‑rate reserve.</p>
+        <p class="bookend-zone" id="zoneSummary"></p>
+        <button class="btn bright" id="startWarm">Start warm‑up</button>
+      </div>
+    </div>
+
+    <div class="part" id="strength">
+      <h2>Strength training</h2>
+      <p>Every major muscle group: quads, hamstrings, glutes, chest, back, shoulders, arms and core.
+         2 exercises per category, 1–2 sets of 10–20 reps each. Tap one to see how it’s done.</p>
+    </div>
+    <div id="plan"></div>
+
+    <div class="bookend">
+      <span class="num">09</span>
+      <div>
+        <h2>Cool‑down</h2>
+        <p>3–5 min of easy, low‑intensity cardio.</p>
+        <button class="btn line" id="startCool">Start cool‑down</button>
+      </div>
+    </div>
+
+    <a class="credits" href="CREDITS.md">Illustration credits</a>
+  </section>
+
+  <!-- cardio: warm-up → cardio (40–60% HRR) → strength … cool-down, with heart-rate tracking -->
+  <section id="cardioScreen" class="hero cardio" hidden>
+    <div class="hero-left">
+      <div class="stage-nav"><button class="back" id="cardioBack">← Session</button></div>
+      <p class="eyebrow">Cardio</p>
+      <h2 id="phaseName">Warm‑up</h2>
+      <p id="phaseHow" class="placement"></p>
+
+      <ol id="phaseSteps" class="phase-steps"></ol>
+
+      <div class="machines" role="radiogroup" aria-label="Machine">
+        <button data-m="treadmill" role="radio">Treadmill</button>
+        <button data-m="bike" role="radio">Recumbent bike</button>
+        <button data-m="elliptical" role="radio">Elliptical</button>
+      </div>
+
+      <div class="count"><span id="clock">0:00</span><span class="count-lbl" id="clockOf"></span></div>
+      <div class="timebar"><i id="timeFill"></i><b id="timeMin"></b></div>
+
+      <div class="actions">
+        <button id="runBtn" class="btn bright">Start</button>
+        <button id="nextPhase" class="btn line"></button>
+      </div>
+      <p id="cardioCue" class="cue"></p>
+
+      <div class="hrr">
+        <label>Resting HR <input id="hrRest" type="number" inputmode="numeric" min="30" max="130" placeholder="—"></label>
+        <label>Max HR <input id="hrMax" type="number" inputmode="numeric" min="80" max="230" placeholder="—"></label>
+        <output id="hrZone"></output>
+      </div>
+      <p class="fine">From your graded exercise test. Your CEP or R.KIN can give you these numbers.</p>
+
+      <div id="cardioLogWrap" class="log" hidden>
+        <h3>Cardio log</h3>
+        <table><thead><tr><th>Date</th><th>Phase</th><th>Time</th><th>In zone</th><th>Avg HR</th></tr></thead><tbody id="cardioLog"></tbody></table>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="hr-now">
+        <span id="hrNow">—</span><span class="count-lbl">bpm</span>
+      </div>
+      <p id="hrState" class="hr-state"></p>
+
+      <div class="hrbar" id="hrBar">
+        <i class="seg easy"></i><i class="seg zone"></i><i class="seg high"></i>
+        <b id="hrMark"></b>
+      </div>
+      <div class="hrbar-lbl"><span id="lblRest"></span><span id="lblZone"></span><span id="lblMax"></span></div>
+
+      <svg id="hrTrace" class="hr-trace" viewBox="0 0 600 170" preserveAspectRatio="none" aria-label="Heart rate this phase"></svg>
+
+      <dl class="readout">
+        <div><dt>In zone</dt><dd id="inZone">0:00</dd></div>
+        <div><dt>Average</dt><dd id="hrAvg">—</dd></div>
+        <div><dt>Peak</dt><dd id="hrPeak">—</dd></div>
+      </dl>
+
+      <div class="hr-src">
+        <button id="hrmBtn" class="btn">Connect heart‑rate monitor</button>
+        <span id="hrmState" class="fine"></span>
+        <form id="hrManual" class="hr-manual">
+          <label>Or type it from the machine <input id="hrType" type="number" inputmode="numeric" min="30" max="230" placeholder="bpm"></label>
+          <button class="btn line">Log</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- steps 2 + 3: calibrate, then track reps / holds -->
+  <section id="stage" class="hero" hidden>
+    <div class="hero-left">
+      <div class="stage-nav">
+        <button class="back" id="backBtn">← Session</button>
+        <button class="back demo-link" id="demoBtn">▶ Watch demo</button>
+      </div>
+      <p id="exCat" class="eyebrow"></p>
+      <h2 id="exName"></h2>
+      <p id="placement" class="placement"></p>
+
+      <!-- step 2: calibrate -->
+      <div id="calibView" class="calib">
+        <button class="step" id="capStart">
+          <b>A</b>
+          <span class="pose" id="poseA"></span>
+          <span><em id="startHow"></em><small id="startVal"></small></span>
+        </button>
+        <button class="step" id="capFinal">
+          <b>B</b>
+          <span class="pose" id="poseB"></span>
+          <span><em id="finalHow"></em><small id="finalVal"></small></span>
+        </button>
+
+        <button id="saveBtn" class="btn bright" disabled>Save calibration</button>
+      </div>
+
+      <!-- step 3: sets -->
+      <div id="workView" hidden>
+        <div class="dose">
+          <span id="setLbl"></span>
+          <span id="target"></span>
+          <label id="loadWrap" class="load">Load <input id="load" spellcheck="false"></label>
+        </div>
+        <div class="count"><span id="reps">0</span><span class="count-lbl" id="countLbl">Reps</span></div>
+        <div id="tracker" class="tracker" aria-label="Progress this set"></div>
+        <div class="actions">
+          <button id="finishSet" class="btn bright">Finish set</button>
+          <button id="resetSet" class="btn line">Reset</button>
+          <button id="recalBtn" class="btn line">Recalibrate</button>
+        </div>
+        <p id="progressNote" class="note" hidden></p>
+      </div>
+
+      <p id="cue" class="cue"></p>
+
+      <div id="logWrap" class="log" hidden>
+        <h3>Exercise log</h3>
+        <table><thead><tr><th>Date</th><th>Sets</th><th>Load</th></tr></thead><tbody id="logBody"></tbody></table>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <!-- shown until the band is sending data: the movement, start to end -->
+      <div id="preview" class="preview" aria-hidden="true"></div>
+
+      <div id="live" hidden>
+      <svg id="dial" viewBox="0 0 600 330" aria-label="Live joint angle">
+        <g id="ticks"></g>
+        <path id="track" class="track"/>
+        <path id="fill" class="fill"/>
+        <path id="zoneStart" class="zone start"/>
+        <path id="zoneFinal" class="zone final"/>
+        <g id="needle"><line x1="300" y1="310" x2="300" y2="80"/></g>
+        <circle cx="300" cy="310" r="10" class="hub"/>
+      </svg>
+
+      <dl class="readout">
+        <div><dt>Angle</dt><dd id="angle">—</dd></div>
+        <div><dt id="dtRange">Range</dt><dd id="romPct">—</dd></div>
+        <div><dt id="dtShort">Short</dt><dd id="partials">0</dd></div>
+      </dl>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- demo pop-up -->
+<dialog id="demo" class="demo" aria-labelledby="demoName">
+  <button class="demo-close" id="demoClose" aria-label="Close">×</button>
+  <div class="demo-figwrap">
+    <div id="demoFig" class="demo-fig"></div>
+    <p id="demoPhase" class="demo-phase"></p>
+  </div>
+  <div class="demo-body">
+    <p id="demoCat" class="eyebrow"></p>
+    <h2 id="demoName"></h2>
+    <p id="demoDose" class="demo-dose"></p>
+    <ol id="demoSteps" class="demo-steps"></ol>
+    <button id="demoGo" class="btn bright"></button>
+  </div>
+</dialog>
+
+<script src="figure.js?v=2"></script>
+<script src="app.js?v=15"></script>
+</body>
+</html>
