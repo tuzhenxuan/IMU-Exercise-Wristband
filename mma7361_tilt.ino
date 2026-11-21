@@ -15,10 +15,13 @@ unsigned long lastBeatTime = 0;
 unsigned long lastHeartSample = 0;
 unsigned long lastHeartService = 0;
 const long fingerThreshold = 50000;
+const unsigned long maxServiceGapMs = 250;  // FIFO overflows at ~320 ms, so allow up to 250
+const uint16_t fifoOverflowLimit = 28;      // near the 32-sample FIFO size, data was likely lost
 
 // Screen Variables
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
+bool screen_init = false;
 
 // Pin Definitions
 const int repLED = 4;
@@ -67,7 +70,10 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 void setup() {
   Serial.begin(9600);
 
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  screen_init = display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  if(!screen_init){
+    Serial.println("Screen not found");
+  }
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
@@ -75,8 +81,7 @@ void setup() {
   // Added MAX30102 setup; shares I2C with the OLED.
   heartSensorFound = heartSensor.begin(Wire, I2C_SPEED_STANDARD);
   if (heartSensorFound) {
-    heartSensor.setup(0x1F, 4, 2, 400, 411, 4096);
-    heartSensor.disableFIFORollover();
+    heartSensor.setup(0x1F, 4, 2, 400, 411, 4096);   // reverted to 400 samples/s
   } else {
     Serial.println("MAX30102 not detected");
   }
@@ -93,6 +98,7 @@ void setup() {
 }
 
 void loop() {
+
   updateHeartRate();
   display.clearDisplay();
   display.setTextSize(1);
@@ -115,7 +121,7 @@ void loop() {
           init_roll += temp_roll;
           heartRateDelay(100);
         }
-        //get the average pitch and roll for the inital position (will +- 5% later to set a range for the inital position)
+        //get the average pitch and roll for the inital position (will +- x% later to set a range for the inital position)
         init_pitch /= 30.0;
         init_roll /= 30.0;
       
@@ -254,18 +260,22 @@ void resetHeartRate() {
 }
 
 void updateHeartRate() {
+
   if (!heartSensorFound) return;
   unsigned long now = millis();
 
-  // Do not calculate BPM from samples left over after a long pause.
-  if (lastHeartService && now - lastHeartService > 100) {
+  // Only treat a pause as data loss if it was long enough for the FIFO to overflow.
+  // (A display.display() call takes ~25-30 ms, which is safe.)
+  if (lastHeartService && now - lastHeartService > maxServiceGapMs) {
     heartSensor.clearFIFO();
     resetHeartRate();
   }
   lastHeartService = now;
 
+  // The FIFO holds 32 samples; only discard when it is close to full.
   uint16_t received = heartSensor.check();
-  if (received >= 4) {
+
+  if (received >= fifoOverflowLimit) {
     while (heartSensor.available()) heartSensor.nextSample();
     resetHeartRate();
     return;
@@ -273,10 +283,12 @@ void updateHeartRate() {
 
   int remaining = heartSensor.available();
   while (heartSensor.available()) {
-    // 400 samples/sec averaged by four gives 100 FIFO samples/sec.
-    unsigned long sampleTime = now - (remaining - 1) * 10UL;
+    // 400 samples/sec averaged by four gives 100 FIFO samples/sec (one every 10 ms).
+    // Rebuild each sample's timestamp from its position in the batch.
+    unsigned long sampleTime = now - (remaining - 1) * 10UL;   // reverted to 10 ms
     remaining--;
     long irValue = heartSensor.getFIFOIR();
+
     heartSensor.nextSample();
     lastHeartSample = now;
 
@@ -289,7 +301,14 @@ void updateHeartRate() {
       if (lastBeatTime) {
         unsigned long interval = sampleTime - lastBeatTime;
         float candidate = interval ? 60000.0f / interval : 0;
-        if (candidate >= 30 && candidate <= 220) {
+
+        if (candidate > 220) {
+          // Too fast to be real (likely a double detection). Ignore it and
+          // keep the earlier beat as the reference instead of wiping the history.
+          continue;
+        }
+
+        if (candidate >= 30) {
           heartRates[heartRateIndex] = candidate;
           heartRateIndex = (heartRateIndex + 1) % 4;
           if (heartRateCount < 4) heartRateCount++;
@@ -298,6 +317,7 @@ void updateHeartRate() {
           heartRateBPM = total / heartRateCount;
           heartRateValid = heartRateCount == 4;
         } else {
+          // Too slow, so a beat was probably missed. Start over.
           resetHeartRate();
         }
       }
