@@ -1,21 +1,14 @@
 /*
-  IMU Band — Arduino + Yun Wi-Fi shield
-  Reads the MMA7361 accelerometer and the MAX30102 pulse sensor, and serves
-  pitch / roll / bpm to the website.
+  IMU Band — Arduino reads the MMA7361 accelerometer and the MAX30102 pulse sensor, and serves pitch / roll / bpm to the website.
 
   Wi-Fi:  website polls  http://arduino.local:5555/   ->  {"pitch":-72.4,"roll":3.1,...,"bpm":72}
-  USB:    set USE_YUN to 0 and the same JSON is printed on Serial (115200) for the
-          website's "USB" mode (Chrome/Edge Web Serial).
-
   Calibration and rep counting run on the website, so the band itself stays simple.
   Wiring:
     MMA7361   X -> A0, Y -> A1, Z -> A2, VCC -> 3.3V, GND -> GND, SL (sleep) -> 3.3V
-              (or SL -> pin 13, which this sketch drives HIGH)
     GY-MAX30102  SDA -> A4 (SDA), SCL -> A5 (SCL), VIN -> 3.3V, GND -> GND
 */
 
 #define USE_YUN 0          // 1 = serve over Yun Wi-Fi shield, 0 = USB serial only
-
 #include <Wire.h>
 #include <MAX30105.h>      // SparkFun library; also supports the MAX30102
 #include <heartRate.h>
@@ -26,7 +19,6 @@
   #include <BridgeClient.h>
   BridgeServer server(5555);
 #endif
-
 // ---------- accelerometer ----------
 const int PIN_X = A0, PIN_Y = A1, PIN_Z = A2;
 const float VREF   = 5.0;    // analog reference voltage
@@ -164,15 +156,11 @@ void printJson(Print &out) {
 }
 
 void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
 #if USE_YUN
-  digitalWrite(LED_BUILTIN, LOW);
-  Bridge.begin();                 // takes a few seconds; LED turns on when ready
+  Bridge.begin();
   server.noListenOnLocalhost();   // accept connections from the network, not just the Yun itself
   server.begin();
-  digitalWrite(LED_BUILTIN, HIGH);
 #else
-  digitalWrite(LED_BUILTIN, HIGH);   // pin 13 is also the MMA7361 SL pin, HIGH = awake
   Serial.begin(115200);
 #endif
 
