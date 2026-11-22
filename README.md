@@ -10,22 +10,25 @@ A wearable IMU band that tracks exercise reps and range of motion, with a websit
 
 ## What's here
 
-- `website/` – The tracker site (plain HTML/CSS/JS, no build step).
+- `website/` – The tracker site (React + TypeScript + Vite).
 - `mma7361_tilt.ino` – Standalone tilt test sketch.
 
 ## Running the website
 
-You need Python and Chrome/Edge.
+You need Node 20+ and Chrome/Edge.
 Run the following lines in your terminal:
 
     cd website
-    python -m http.server 8080
+    npm install
+    npm run dev
 
 Then open:
 - http://localhost:8080/?demo – demo mode, which simulates the band and heart rate (no hardware needed)
 - http://localhost:8080/ – real band: connect over Wi-Fi (default `arduino.local:5555`) or USB
 
-Use `localhost`, not a double-clicked `index.html`. USB and Bluetooth heart-rate monitors only work on a secure page in Chrome or Edge.
+Use `localhost`, not a double-clicked file. USB and Bluetooth heart-rate monitors only work on a secure page in Chrome or Edge.
+
+Other scripts (run from `website/`): `npm run build`, `npm run typecheck`, `npm run lint`, `npm test` (unit tests for rep counting, heart-rate zones and the session log), and `npm run test:e2e` (Playwright, desktop and mobile; run `npx playwright install chromium` once first).
 
 ## Use of LLM
 
