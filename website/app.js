@@ -437,6 +437,7 @@ function resetSet() {
 // ---------- incoming samples ----------
 let sampleTimes = [], lastT = 0;
 function onSample(s) {
+  if (s.bpm > 0) onHR(s.bpm);   // heart rate from the band's MAX30102 (null/0 = no reading yet)
   const a = Number(s[state.ex.axis]);
   if (!Number.isFinite(a)) return;
   state.angle = a;
@@ -609,7 +610,7 @@ function renderCardio() {
   const zs = fresh ? zoneOf(cardio.bpm) : null, tips = MACHINE_TIPS[cardio.machine];
   $("hrState").className = `hr-state ${zs || ""}`;
   $("hrState").textContent = !z ? "Enter resting and max HR to get zone guidance."
-    : !fresh ? (hrm ? "Waiting for your monitor…" : "No heart rate yet. Connect a monitor or type it in from the machine below.")
+    : !fresh ? (hrm ? "Waiting for your monitor…" : source ? "Waiting for a pulse. Rest a fingertip lightly on the band's heart sensor." : "No heart rate yet. Connect the band or a monitor, or type it in from the machine below.")
     : zs === "in" ? (P.lo ? "In your zone. Hold this pace." : "Nice and easy. Keep it here.")
     : zs === "low" ? `Below your zone. ${tips.up}`
     : P.lo ? `Above your zone. ${tips.down}` : `Too hard for a ${P.name.toLowerCase()}. ${tips.down}`;
