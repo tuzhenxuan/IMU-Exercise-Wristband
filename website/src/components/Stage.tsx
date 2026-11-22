@@ -130,7 +130,9 @@ export function Stage({ ex, saved, log, initialLoad, band, onBack, onDemo, onSav
 
   const todays = todaysEntry(log, ex.id);
   const done = todays ? todays.sets.length : 0;
+  // after the prescribed sets, the next one is an extra set the person chose to do
   const startNextSet = () => {
+    if (done >= DOSE.maxSets) setExtra(true);
     resetSet();
     quietUntil.current = 0;
     setRestStartedAt(null);
@@ -144,13 +146,11 @@ export function Stage({ ex, saved, log, initialLoad, band, onBack, onDemo, onSav
     const n = done + 1;
     resetSet();
     quietUntil.current = performance.now() + 4000;
-    if (n >= DOSE.maxSets) {
-      setCue(extra ? "Extra set logged." : "Both sets logged. On to the next exercise.");
-    } else {
-      // rest between sets: the band is ignored until the person starts the next set
-      setRestStartedAt(performance.now()); setRestSecs(0);
-      setCue(`Set ${n} logged. Rest as long as you need, then start set ${n + 1}.`);
-    }
+    // rest after every set: the band is ignored until the person starts the next one
+    setRestStartedAt(performance.now()); setRestSecs(0);
+    setCue(n >= DOSE.maxSets
+      ? `${extra ? "Extra set" : "Both sets"} logged. Rest as long as you need, then do another set if you want one.`
+      : `Set ${n} logged. Rest as long as you need, then start set ${n + 1}.`);
   };
 
   const logRows = entries(log, ex.id).slice(-6).reverse();
@@ -221,7 +221,9 @@ export function Stage({ ex, saved, log, initialLoad, band, onBack, onDemo, onSav
               <div className="rest" role="group" aria-label="Rest between sets">
                 <p className="rest-label">Rest</p>
                 <span className="clock" role="timer" aria-live="off">{mmss(restSecs)}</span>
-                <Button variant="primary" size="lg" onClick={startNextSet}>Start set {done + 1}</Button>
+                <Button variant="primary" size="lg" onClick={startNextSet}>
+                  {done >= DOSE.maxSets ? "Do another set" : `Start set ${done + 1}`}
+                </Button>
               </div>
             ) : (
               <>

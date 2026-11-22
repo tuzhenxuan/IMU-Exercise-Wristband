@@ -224,13 +224,15 @@ test("between sets: rest stopwatch, band ignored, next set starts only on button
   await expect(page.getByText("Set 2 of 1–2")).toBeVisible();
   await expect(reps).toHaveText("0");
 
-  // after the last set there is no rest screen
+  // after the second set there is a rest too, and the next step is 'Do another set'
   await counted();
   await page.getByRole("button", { name: "Finish set" }).click();
-  await expect(page.getByText("Both sets logged. On to the next exercise.")).toBeVisible();
+  await expect(rest).toBeVisible();
+  await expect(page.getByText(/Both sets logged. Rest as long as you need/)).toBeVisible();
+  await expect(rest.getByRole("button", { name: "Do another set" })).toBeVisible();
+  await rest.getByRole("button", { name: "Do another set" }).click();
   await expect(rest).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Finish set" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Do another set" })).toBeVisible();
+  await expect(page.getByText("Extra set 3")).toBeVisible();
 });
 
 test("after two sets today, 'Do another set' enables finishing an extra set", async ({ page }) => {
