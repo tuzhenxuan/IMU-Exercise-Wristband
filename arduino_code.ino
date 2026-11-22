@@ -8,10 +8,17 @@
     GY-MAX30102  SDA -> A4 (SDA), SCL -> A5 (SCL), VIN -> 3.3V, GND -> GND
 */
 
+#define USE_YUN 0          // 1 = serve over Yun Wi-Fi shield, 0 = USB serial only
 #include <Wire.h>
 #include <MAX30105.h>      // SparkFun library; also supports the MAX30102
 #include <heartRate.h>
 
+#if USE_YUN
+  #include <Bridge.h>
+  #include <BridgeServer.h>
+  #include <BridgeClient.h>
+  BridgeServer server(5555);
+#endif
 // ---------- accelerometer ----------
 const int PIN_X = A0, PIN_Y = A1, PIN_Z = A2;
 const float VREF   = 5.0;    // analog reference voltage
@@ -149,7 +156,14 @@ void printJson(Print &out) {
 }
 
 void setup() {
+#if USE_YUN
+  Bridge.begin();
+  server.noListenOnLocalhost();   // accept connections from the network, not just the Yun itself
+  server.begin();
+#else
   Serial.begin(115200);
+#endif
+
   heartSensorFound = heartSensor.begin(Wire, I2C_SPEED_STANDARD);
   if (heartSensorFound) {
     heartSensor.setup(0x1F, 4, 2, 400, 411, 4096);
@@ -159,11 +173,28 @@ void setup() {
 void loop() {
   readIMU();
   updateHeartRate();
+
+#if USE_YUN
+  BridgeClient client = server.accept();
+  if (client) {
+    client.setTimeout(20);
+    while (client.available()) client.read();          // discard the HTTP request
+    client.print(F("HTTP/1.1 200 OK\r\n"
+                   "Content-Type: application/json\r\n"
+                   "Access-Control-Allow-Origin: *\r\n" // lets the website read it from any page
+                   "Cache-Control: no-store\r\n"
+                   "Connection: close\r\n\r\n"));
+    printJson(client);
+    client.stop();
+  }
+#else
   static unsigned long last = 0;
   if (millis() - last >= 50) {     // 20 Hz
     last = millis();
     printJson(Serial);
     Serial.println();
   }
+#endif
+
   delay(5);
 }
