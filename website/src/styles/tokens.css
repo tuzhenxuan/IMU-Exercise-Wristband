@@ -1,0 +1,52 @@
+/* Design tokens. Everything visual in the app reads from here. */
+:root {
+  /* surfaces */
+  --canvas: #f3f6f4;
+  --surface: #ffffff;
+  --surface-sunk: #eaf0ed;
+  --line: #dae3df;
+  --line-strong: #c2cfca;
+
+  /* text */
+  --ink: #10231e;
+  --muted: #566964;
+  --faint: #7d8f8a;
+
+  /* brand */
+  --pine: #0f6b5a;
+  --pine-dark: #0a5446;
+  --pine-soft: #e2f0eb;
+
+  /* live-data panel */
+  --stage: #0c2d27;
+  --stage-raised: #12413a;
+  --stage-ink: #e9f6f1;
+  --stage-muted: #92b5aa;
+  --stage-line: rgba(233, 246, 241, .14);
+  --signal: #5ee0b4;
+
+  /* status */
+  --amber: #a85206;
+  --amber-soft: #fdf0dc;
+  --coral: #b3361b;
+  --focus: #1d7bd8;
+
+  /* type */
+  --font: "Figtree Variable", "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text-sm: .875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+
+  /* shape */
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --shadow-1: 0 1px 2px rgba(16, 35, 30, .05);
+  --shadow-2: 0 12px 40px rgba(16, 35, 30, .18);
+
+  /* layout */
+  --gutter: clamp(16px, 4vw, 40px);
+  --max: 1200px;
+  --max-narrow: 880px;
+}
