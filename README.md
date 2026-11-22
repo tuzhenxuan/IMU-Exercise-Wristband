@@ -4,7 +4,6 @@ A wearable IMU band that tracks exercise reps and range of motion, with a websit
 
 ## What's here
 
-- `arduino/imu_band_yun/` – Arduino Yun sketch. Reads the MMA7361 accelerometer and sends pitch/roll over Wi-Fi or USB.
 - `website/` – The tracker site (plain HTML/CSS/JS, no build step).
 - `mma7361_tilt.ino` – Standalone tilt test sketch.
 
