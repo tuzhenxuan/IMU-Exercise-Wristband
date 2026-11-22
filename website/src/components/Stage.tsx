@@ -3,7 +3,7 @@ import { DOSE, NO_LOAD, categoryName, type Exercise } from "../data/program";
 import type { Band } from "../hooks/useBand";
 import { useFigureClock } from "../hooks/useFigureClock";
 import { SetEngine, zonesFor } from "../lib/engine";
-import { shortDate } from "../lib/format";
+import { mmss, shortDate } from "../lib/format";
 import { figurePhase } from "../lib/figure";
 import { entries, entryLoad, isSaved, readyToProgress, setsSummary, todaysEntry, type Calibration, type Log, type Saved, type SetRecord } from "../lib/log";
 import { Move, FigureSvg, Still } from "./Figure";
@@ -31,6 +31,9 @@ export function Stage({ ex, saved, log, initialLoad, band, onBack, onDemo, onSav
   const [load, setLoad] = useState(initialLoad);
   const [hit, setHit] = useState(false);
   const [bumpKey, setBumpKey] = useState(0);
+  const [restStartedAt, setRestStartedAt] = useState<number | null>(null);   // set while resting between sets
+  const [restSecs, setRestSecs] = useState(0);
+  const [extra, setExtra] = useState(false);   // the person chose to log sets beyond the prescribed ones
   const [, rerender] = useReducer((n: number) => n + 1, 0);
 
   const engine = useRef(new SetEngine()).current;
@@ -43,8 +46,9 @@ export function Stage({ ex, saved, log, initialLoad, band, onBack, onDemo, onSav
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // latest values for the sample handler, which outlives each render
-  const latest = useRef({ mode, draft, saved });
-  latest.current = { mode, draft, saved };
+  const latest = useRef({ mode, draft, saved, resting: false });
+  const resting = restStartedAt != null;
+  latest.current = { mode, draft, saved, resting };
 
   const zones = zonesFor(ex, mode === "calib" ? draft : saved[ex.id]);
 
@@ -73,7 +77,7 @@ export function Stage({ ex, saved, log, initialLoad, band, onBack, onDemo, onSav
       if (cap.buf.length >= SAMPLES_PER_CAPTURE) finishCapture();
       return;
     }
-    if (latest.current.mode !== "work") return;
+    if (latest.current.mode !== "work" || latest.current.resting) return;
     const z = zonesFor(ex, latest.current.saved[ex.id]);
     if (!z) return;
     const r = ex.hold ? engine.stepHold(a, dt, z, ex.hold) : engine.step(a, z);
@@ -85,6 +89,13 @@ export function Stage({ ex, saved, log, initialLoad, band, onBack, onDemo, onSav
 
   useEffect(() => band.subscribe(handleSample), [band, handleSample]);
   useEffect(() => () => clearTimeout(timer.current), []);
+  // rest stopwatch, counting up from the moment the set was logged
+  useEffect(() => {
+    if (restStartedAt == null) return;
+    const tick = () => setRestSecs(Math.floor((performance.now() - restStartedAt) / 1000));
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [restStartedAt]);
   useEffect(() => { band.sim.current?.reset(); }, [band.sim, ex]);
 
   const resetSet = () => { engine.reset(); rerender(); };
@@ -119,6 +130,12 @@ export function Stage({ ex, saved, log, initialLoad, band, onBack, onDemo, onSav
 
   const todays = todaysEntry(log, ex.id);
   const done = todays ? todays.sets.length : 0;
+  const startNextSet = () => {
+    resetSet();
+    quietUntil.current = 0;
+    setRestStartedAt(null);
+    setCue("");
+  };
   const finishSet = () => {
     const val = ex.hold ? Math.floor(engine.held) : engine.reps;
     if (!val) { setCue(ex.hold ? "Hold the position first." : "No reps yet."); return; }
@@ -127,7 +144,13 @@ export function Stage({ ex, saved, log, initialLoad, band, onBack, onDemo, onSav
     const n = done + 1;
     resetSet();
     quietUntil.current = performance.now() + 4000;
-    setCue(n >= DOSE.maxSets ? "Both sets logged. On to the next exercise." : `Set ${n} logged. Rest, then do one more set if you can.`);
+    if (n >= DOSE.maxSets) {
+      setCue(extra ? "Extra set logged." : "Both sets logged. On to the next exercise.");
+    } else {
+      // rest between sets: the band is ignored until the person starts the next set
+      setRestStartedAt(performance.now()); setRestSecs(0);
+      setCue(`Set ${n} logged. Rest as long as you need, then start set ${n + 1}.`);
+    }
   };
 
   const logRows = entries(log, ex.id).slice(-6).reverse();
@@ -181,7 +204,9 @@ export function Stage({ ex, saved, log, initialLoad, band, onBack, onDemo, onSav
         ) : (
           <div className="work">
             <div className="dose">
-              <span className="set-label">{done >= DOSE.maxSets ? `${done} sets done today` : `Set ${done + 1} of ${DOSE.minSets}–${DOSE.maxSets}`}</span>
+              <span className="set-label">
+                {extra ? `Extra set ${done + 1}` : done >= DOSE.maxSets ? `${done} sets done today` : `Set ${done + 1} of ${DOSE.minSets}–${DOSE.maxSets}`}
+              </span>
               <span className="target">{ex.hold ? `Hold ${ex.hold}s` : `${DOSE.min}–${DOSE.max} reps`}</span>
               {!NO_LOAD.has(ex.cat) && (
                 <label className="load">Load
@@ -192,16 +217,30 @@ export function Stage({ ex, saved, log, initialLoad, band, onBack, onDemo, onSav
                 </label>
               )}
             </div>
-            <div className="count">
-              <span key={bumpKey} className={`reps ${bumpKey ? "bump" : ""}`} aria-live="off">{ex.hold ? Math.floor(engine.held) : engine.reps}</span>
-              <span className="count-lbl">{ex.hold ? "Seconds" : "Reps"}</span>
-            </div>
-            <Tracker ex={ex} history={engine.history} held={engine.held} />
-            <div className="actions">
-              <Button variant="primary" size="lg" disabled={done >= DOSE.maxSets} onClick={finishSet}>Finish set</Button>
-              <Button size="lg" onClick={() => { resetSet(); setCue(""); }}>Reset</Button>
-              <Button size="lg" onClick={startCalib}>Recalibrate</Button>
-            </div>
+            {resting ? (
+              <div className="rest" role="group" aria-label="Rest between sets">
+                <p className="rest-label">Rest</p>
+                <span className="clock" role="timer" aria-live="off">{mmss(restSecs)}</span>
+                <Button variant="primary" size="lg" onClick={startNextSet}>Start set {done + 1}</Button>
+              </div>
+            ) : (
+              <>
+                <div className="count">
+                  <span key={bumpKey} className={`reps ${bumpKey ? "bump" : ""}`} aria-live="off">{ex.hold ? Math.floor(engine.held) : engine.reps}</span>
+                  <span className="count-lbl">{ex.hold ? "Seconds" : "Reps"}</span>
+                </div>
+                <Tracker ex={ex} history={engine.history} held={engine.held} />
+                <div className="actions">
+                  {done >= DOSE.maxSets && !extra ? (
+                    <Button variant="primary" size="lg" onClick={() => { setExtra(true); setCue(""); }}>Do another set</Button>
+                  ) : (
+                    <Button variant="primary" size="lg" onClick={finishSet}>Finish set</Button>
+                  )}
+                  <Button size="lg" onClick={() => { resetSet(); setCue(""); }}>Reset</Button>
+                  <Button size="lg" onClick={startCalib}>Recalibrate</Button>
+                </div>
+              </>
+            )}
             {readyToProgress(ex, log) && (
               <p className="note">{DOSE.max} reps on every set, two sessions in a row. Time to increase the load — check with your CEP or R.KIN.</p>
             )}

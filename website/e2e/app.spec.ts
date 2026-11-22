@@ -193,3 +193,62 @@ test("every screen fits the viewport", async ({ page }) => {
   await page.getByRole("button", { name: /Start/ }).last().click();
   await noHorizontalScroll(page);
 });
+
+test("between sets: rest stopwatch, band ignored, next set starts only on button press", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.addInitScript(() => localStorage.setItem("imuband.cal", JSON.stringify({ curl: { start: -80, final: 55 } })));
+  await page.goto("/?demo");
+  await page.getByRole("button", { name: /Arm Curl/ }).click();
+  await page.getByRole("button", { name: "Start exercise" }).click();
+  const reps = page.locator(".reps");
+  const counted = async () => expect(async () => {
+    expect(Number(await reps.textContent())).toBeGreaterThanOrEqual(1);
+  }).toPass({ timeout: 40_000 });
+
+  await counted();
+  await page.getByRole("button", { name: "Finish set" }).click();
+
+  // rest screen: stopwatch runs, no rep counter, no way to count until started
+  const rest = page.getByRole("group", { name: "Rest between sets" });
+  await expect(rest).toBeVisible();
+  await expect(page.getByText(/Set 1 logged. Rest as long as you need/)).toBeVisible();
+  await expect(page.getByRole("timer")).toHaveText("0:00");
+  await expect(page.getByRole("timer")).not.toHaveText("0:00", { timeout: 5000 });
+  await expect(reps).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Finish set" })).toHaveCount(0);
+  await page.waitForTimeout(6000);   // the simulated band keeps moving; nothing may be counted
+  await expect(reps).toHaveCount(0);
+
+  await rest.getByRole("button", { name: "Start set 2" }).click();
+  await expect(rest).toHaveCount(0);
+  await expect(page.getByText("Set 2 of 1–2")).toBeVisible();
+  await expect(reps).toHaveText("0");
+
+  // after the last set there is no rest screen
+  await counted();
+  await page.getByRole("button", { name: "Finish set" }).click();
+  await expect(page.getByText("Both sets logged. On to the next exercise.")).toBeVisible();
+  await expect(rest).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Finish set" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Do another set" })).toBeVisible();
+});
+
+test("after two sets today, 'Do another set' enables finishing an extra set", async ({ page }) => {
+  await page.addInitScript(() => {
+    const today = new Date().toLocaleDateString("en-CA");
+    localStorage.setItem("imuband.cal", JSON.stringify({ curl: { start: 0, final: 60 } }));
+    localStorage.setItem("imuband.log", JSON.stringify({ curl: [{ date: today, sets: [{ reps: 12, load: "" }, { reps: 11, load: "" }] }] }));
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: /Arm Curl/ }).click();
+  await page.getByRole("button", { name: "Start exercise" }).click();
+  await expect(page.getByText("2 sets done today")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Finish set" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Do another set" }).click();
+  await expect(page.getByText("Extra set 3")).toBeVisible();
+  await page.getByRole("button", { name: "Finish set" }).click();
+  await expect(page.getByText("No reps yet.")).toBeVisible();   // enabled: nothing counted, so nothing logged
+
+  await expect(page.getByRole("button", { name: "Do another set" })).toHaveCount(0);
+});

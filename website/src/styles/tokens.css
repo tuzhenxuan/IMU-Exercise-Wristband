@@ -1,35 +1,37 @@
-/* Design tokens. Everything visual in the app reads from here. */
+/* Design tokens. Everything visual in the app reads from here. Light blue, after the original site. */
 :root {
   /* surfaces */
-  --canvas: #f3f6f4;
+  --canvas: #f0f5ff;
   --surface: #ffffff;
-  --surface-sunk: #eaf0ed;
-  --line: #dae3df;
-  --line-strong: #c2cfca;
+  --surface-sunk: #e8effc;
+  --line: #d6e2f8;
+  --line-strong: #b7caee;
 
   /* text */
-  --ink: #10231e;
-  --muted: #566964;
-  --faint: #7d8f8a;
+  --ink: #0f2557;
+  --muted: #53669a;
+  --faint: #7a8cb8;
 
   /* brand */
-  --pine: #0f6b5a;
-  --pine-dark: #0a5446;
-  --pine-soft: #e2f0eb;
+  --brand: #3b6af0;
+  --brand-dark: #2c55d4;
+  --brand-soft: #e6eeff;
+  --brand-rgb: 59, 106, 240;
 
-  /* live-data panel */
-  --stage: #0c2d27;
-  --stage-raised: #12413a;
-  --stage-ink: #e9f6f1;
-  --stage-muted: #92b5aa;
-  --stage-line: rgba(233, 246, 241, .14);
-  --signal: #5ee0b4;
+  /* live-data panel (light, tinted) */
+  --stage: #e3ecff;
+  --stage-raised: #ffffff;
+  --stage-ink: #0f2557;
+  --stage-muted: #53669a;
+  --stage-line: rgba(15, 37, 87, .13);
+  --signal: #3b6af0;
+  --signal-rgb: 59, 106, 240;
 
   /* status */
   --amber: #a85206;
   --amber-soft: #fdf0dc;
   --coral: #b3361b;
-  --focus: #1d7bd8;
+  --focus: #2c55d4;
 
   /* type */
   --font: "Figtree Variable", "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -42,8 +44,8 @@
   --r-md: 10px;
   --r-lg: 16px;
   --r-xl: 24px;
-  --shadow-1: 0 1px 2px rgba(16, 35, 30, .05);
-  --shadow-2: 0 12px 40px rgba(16, 35, 30, .18);
+  --shadow-1: 0 1px 2px rgba(15, 37, 87, .05);
+  --shadow-2: 0 12px 40px rgba(15, 37, 87, .2);
 
   /* layout */
   --gutter: clamp(16px, 4vw, 40px);

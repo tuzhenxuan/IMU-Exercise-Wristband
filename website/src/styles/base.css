@@ -13,8 +13,8 @@ body {
 }
 button, input { font: inherit; color: inherit; }
 button { background: none; border: 0; cursor: pointer; padding: 0; }
-a { color: var(--pine); text-underline-offset: 3px; }
-a:hover { color: var(--pine-dark); }
+a { color: var(--brand); text-underline-offset: 3px; }
+a:hover { color: var(--brand-dark); }
 img, svg { display: block; max-width: 100%; }
 ol, ul { padding: 0; list-style: none; }
 b { font-weight: 650; }
