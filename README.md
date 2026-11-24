@@ -32,4 +32,4 @@ Other scripts (run from `website/`): `npm run build`, `npm run typecheck`, `npm 
 
 ## Use of LLM
 
-An AI assistant (Claude) helped with some of the repetitive parts of the website, like setting up the exercise list, adding similar pages and styles for each exercise, and tidying up the layout. ChatGPT 6.1 Sol helped with conceptualization to come up with possible IMU wearable prototypes to solve problem 2. AI was used to debug some code errors. It also helped format this README. 
+An AI assistant (Claude Opus 5.5) helped with some of the repetitive parts of the website, like setting up the exercise list, adding similar pages and styles for each exercise, and tidying up the layout. ChatGPT 6.1 Sol helped with conceptualization to come up with possible IMU wearable prototypes to solve problem 2. AI was used to debug some code errors. It also helped format this README. 
